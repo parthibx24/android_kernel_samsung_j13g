@@ -184,9 +184,11 @@ static int rtcc_thread(void * nothing)
 				}
 			} else if (get_anon_pages() < swap_toplimit / 4) {
 				rtcc_boost_mode = 0;
+				atomic_set(&need_to_reclaim, 0);
 				printk("swapped %ldMB enough, exit boost mode.\n", get_swapped_pages()/256);
 			} else if (time_after(jiffies, boost_end_jiffy)) {
 				rtcc_boost_mode = 0;
+				atomic_set(&need_to_reclaim, 0);
 				printk("time out, swapped %ldMB, exit boost mode.\n", get_swapped_pages()/256);
 			}
 
