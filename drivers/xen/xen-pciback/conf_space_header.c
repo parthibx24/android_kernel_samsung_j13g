@@ -83,6 +83,19 @@ static int command_write(struct pci_dev *dev, int offset, u16 value, void *data)
 		}
 	}
 
+	cmd->val = value;
+
+	if (!xen_pcibk_permissive && (!dev_data || !dev_data->permissive))
+		return 0;
+
+	/* Only allow the guest to control certain bits. */
+	err = pci_read_config_word(dev, offset, &val);
+	if (err || val == value)
+		return err;
+
+	value &= PCI_COMMAND_GUEST;
+	value |= val & ~PCI_COMMAND_GUEST;
+
 	return pci_write_config_word(dev, offset, value);
 }
 
