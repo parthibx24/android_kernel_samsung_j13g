@@ -5234,11 +5234,6 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	}
 #endif
 
-	if (splice_grow_spd(pipe, &spd)) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
 	if (*ppos & (PAGE_SIZE - 1)) {
 		ret = -EINVAL;
 		goto out;
@@ -5250,6 +5245,11 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 			goto out;
 		}
 		len &= PAGE_MASK;
+	}
+
+	if (splice_grow_spd(pipe, &spd)) {
+		ret = -ENOMEM;
+		goto out;
 	}
 
  again:
@@ -5307,19 +5307,22 @@ tracing_buffers_splice_read(struct file *file, loff_t *ppos,
 	if (!spd.nr_pages) {
 		if ((file->f_flags & O_NONBLOCK) || (flags & SPLICE_F_NONBLOCK)) {
 			ret = -EAGAIN;
-			goto out;
+			goto out_shrink;
 		}
 		mutex_unlock(&trace_types_lock);
 		iter->trace->wait_pipe(iter);
 		mutex_lock(&trace_types_lock);
+		if (ret)
+			goto out_shrink;
 		if (signal_pending(current)) {
 			ret = -EINTR;
-			goto out;
+			goto out_shrink;
 		}
 		goto again;
 	}
 
 	ret = splice_to_pipe(pipe, &spd);
+out_shrink:
 	splice_shrink_spd(&spd);
 out:
 	mutex_unlock(&trace_types_lock);
